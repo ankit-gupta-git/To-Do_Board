@@ -17,6 +17,7 @@ const KanbanBoard = () => {
   const [conflictData, setConflictData] = useState(null);
   const [error, setError] = useState('');
   const [deleteTaskId, setDeleteTaskId] = useState(null);
+  const [movingTaskId, setMovingTaskId] = useState(null);
 
   const columns = [
     { id: 'Todo', title: 'To Do', color: '#e2e8f0' },
@@ -83,18 +84,25 @@ const KanbanBoard = () => {
 
     // Update the task status
     const newStatus = destination.droppableId;
-    
+    const prevTasks = [...tasks];
+
+    // Optimistically update UI
+    setTasks(prev => prev.map(t =>
+      t._id === task._id ? { ...t, status: newStatus } : t
+    ));
+    setMovingTaskId(task._id);
+
     try {
       const response = await tasksAPI.update(task._id, {
         status: newStatus,
         version: task.version
       });
-      
-      // Update local state
-      setTasks(prev => prev.map(t => 
+      setTasks(prev => prev.map(t =>
         t._id === task._id ? response.data.task : t
       ));
     } catch (error) {
+      // Revert on error
+      setTasks(prevTasks);
       if (error.response?.status === 409) {
         // Conflict detected
         setConflictData({
@@ -105,6 +113,8 @@ const KanbanBoard = () => {
         console.error('Error updating task:', error);
         setError('Failed to update task');
       }
+    } finally {
+      setMovingTaskId(null);
     }
   };
 
@@ -272,6 +282,7 @@ const KanbanBoard = () => {
                         onEdit={(task) => setEditingTask(task)}
                         onDelete={handleDeleteTask}
                         onSmartAssign={handleSmartAssign}
+                        isMoving={movingTaskId === task._id}
                       />
                     ))}
                     {provided.placeholder}

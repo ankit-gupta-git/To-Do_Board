@@ -3,7 +3,7 @@ import { Draggable } from '@hello-pangea/dnd';
 import { Edit, Trash2, UserPlus } from 'lucide-react';
 import './TaskCard.css';
 
-const TaskCard = ({ task, index, onEdit, onDelete, onSmartAssign }) => {
+const TaskCard = ({ task, index, onEdit, onDelete, onSmartAssign, isMoving }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const getPriorityColor = (priority) => {
@@ -40,10 +40,15 @@ const TaskCard = ({ task, index, onEdit, onDelete, onSmartAssign }) => {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`task-card ${snapshot.isDragging ? 'dragging' : ''}`}
+          className={`task-card ${snapshot.isDragging ? 'dragging' : ''} ${isMoving ? 'moving' : ''}`}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
+          {isMoving && (
+            <div className="moving-overlay">
+              <div className="spinner"></div>
+            </div>
+          )}
           <div className="task-header">
             <h3 className="task-title">{task.title}</h3>
             <div 

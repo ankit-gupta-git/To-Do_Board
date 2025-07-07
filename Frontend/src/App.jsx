@@ -1,9 +1,12 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginForm from './components/Auth/LoginForm';
 import RegisterForm from './components/Auth/RegisterForm';
 import KanbanBoard from './components/Board/KanbanBoard';
 import ActivityLog from './components/Board/ActivityLog';
+import Navbar from './components/Navbar';
+import Home from './components/Home';
+import Footer from "./components/Footer";
 import './App.css';
 
 // Protected Route Component
@@ -56,10 +59,14 @@ const BoardPage = () => {
 
 // App Component
 const App = () => {
+  const location = useLocation();
+  const isBoardPage = location.pathname === '/board';
   return (
     <AuthProvider>
       <div className="app">
+        {!isBoardPage && <Navbar />}
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegisterForm />} />
           <Route 
@@ -70,8 +77,8 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
-          <Route path="/" element={<Navigate to="/board" replace />} />
         </Routes>
+        {!isBoardPage && <Footer />}
       </div>
     </AuthProvider>
   );
