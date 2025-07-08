@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { tasksAPI } from '../../services/api';
-import socketService from '../../services/socket';
 import { Plus, X } from 'lucide-react';
 import TaskCard from '../Task/TaskCard';
 import TaskForm from '../Task/TaskForm';
-import ConflictModal from '../Task/ConflictModal';
 import DeleteConfirmModal from '../Task/DeleteConfirmModal';
+import ConflictModal from '../Task/ConflictModal';
+import { tasksAPI, updateWithRetry } from '../../services/api';
+import socketService from '../../services/socket';
 import './KanbanBoard.css';
 
 const KanbanBoard = () => {
@@ -93,7 +93,7 @@ const KanbanBoard = () => {
     setMovingTaskId(task._id);
 
     try {
-      const response = await tasksAPI.update(task._id, {
+      const response = await updateWithRetry(task._id, {
         status: newStatus,
         version: task.version
       });
@@ -130,7 +130,7 @@ const KanbanBoard = () => {
 
   const handleEditTask = async (taskData) => {
     try {
-      const response = await tasksAPI.update(editingTask._id, {
+      const response = await updateWithRetry(editingTask._id, {
         ...taskData,
         version: editingTask.version
       });
@@ -172,7 +172,7 @@ const KanbanBoard = () => {
 
   const handleSmartAssign = async (taskId) => {
     try {
-      const response = await tasksAPI.update(taskId, {
+      const response = await updateWithRetry(taskId, {
         assignedUser: '', // Empty string triggers smart assign on backend
         version: tasks.find(t => t._id === taskId)?.version || 1
       });
@@ -197,27 +197,38 @@ const KanbanBoard = () => {
   const handleConflictResolve = async (resolution, data) => {
     try {
       if (resolution === 'merge') {
-        const response = await tasksAPI.update(conflictData.localTask._id, {
+        const response = await updateWithRetry(conflictData.localTask._id, {
           ...data,
-          version: conflictData.serverTask.version
+          version: conflictData.serverTask.version + 1  // Use server version + 1
         });
         setTasks(prev => prev.map(t => 
           t._id === conflictData.localTask._id ? response.data.task : t
         ));
+        setError(''); // Clear any previous errors
       } else {
-        // Overwrite - retry the original update
-        const response = await tasksAPI.update(conflictData.localTask._id, {
+        // Overwrite - retry the original update with server version + 1
+        const response = await updateWithRetry(conflictData.localTask._id, {
           ...conflictData.localTask,
-          version: conflictData.serverTask.version
+          version: conflictData.serverTask.version + 1  // Use server version + 1
         });
         setTasks(prev => prev.map(t => 
           t._id === conflictData.localTask._id ? response.data.task : t
         ));
+        setError(''); // Clear any previous errors
       }
       setConflictData(null);
     } catch (error) {
       console.error('Error resolving conflict:', error);
-      setError('Failed to resolve conflict');
+      if (error.response?.status === 409) {
+        // Still getting conflicts, update the conflict data
+        setConflictData({
+          localTask: conflictData.localTask,
+          serverTask: error.response.data.serverTask
+        });
+        setError('Conflict still exists. Please try again.');
+      } else {
+        setError('Failed to resolve conflict. Please refresh and try again.');
+      }
     }
   };
 

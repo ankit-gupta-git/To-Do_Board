@@ -23,6 +23,7 @@ const io = new Server(server, {
   }
 });
 
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -56,6 +57,7 @@ const taskSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
+  lastModifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   version: { type: Number, default: 1 }
 });
 
@@ -243,6 +245,22 @@ app.get('/api/tasks', authenticateToken, async (req, res) => {
   }
 });
 
+// Get single task
+app.get('/api/tasks/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const task = await Task.findById(id).populate('assignedUser', 'username');
+    
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Create task
 app.post('/api/tasks', [
   authenticateToken,
@@ -315,7 +333,8 @@ app.put('/api/tasks/:id', [
     }
 
     // Conflict handling
-    if (version && task.version !== version) {
+    if (version !== undefined && task.version !== version) {
+      console.log(`Conflict detected for task ${id}: client version ${version}, server version ${task.version}`);
       return res.status(409).json({
         message: 'Conflict detected',
         currentVersion: task.version,
@@ -338,6 +357,7 @@ app.put('/api/tasks/:id', [
     }
     
     task.updatedAt = new Date();
+    task.lastModifiedBy = req.user.userId;
     task.version += 1;
 
     await task.save();

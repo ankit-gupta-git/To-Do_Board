@@ -46,9 +46,29 @@ export const authAPI = {
 // Tasks API calls
 export const tasksAPI = {
   getAll: () => api.get('/tasks'),
+  get: (id) => api.get(`/tasks/${id}`),
   create: (taskData) => api.post('/tasks', taskData),
   update: (id, taskData) => api.put(`/tasks/${id}`, taskData),
   delete: (id) => api.delete(`/tasks/${id}`),
+};
+
+// Enhanced update function with retry logic
+export const updateWithRetry = async (taskId, data, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await tasksAPI.update(taskId, data);
+      return response;
+    } catch (error) {
+      if (error.response?.status === 409 && i < maxRetries - 1) {
+        // Get the latest version and retry
+        console.log(`Retry ${i + 1}/${maxRetries} for task ${taskId}`);
+        const latestTask = await tasksAPI.get(taskId);
+        data.version = latestTask.data.version;
+        continue;
+      }
+      throw error;
+    }
+  }
 };
 
 // Actions API calls
@@ -61,4 +81,10 @@ export const usersAPI = {
   getAll: () => api.get('/users'),
 };
 
-export default api; 
+export default {
+  authAPI,
+  tasksAPI,
+  actionsAPI,
+  usersAPI,
+  updateWithRetry
+}; 
