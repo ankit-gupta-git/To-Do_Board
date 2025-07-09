@@ -145,6 +145,7 @@ app.post('/api/auth/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 })
 ], async (req, res) => {
+  console.log('Register attempt:', { username: req.body.username, email: req.body.email });
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -196,6 +197,7 @@ app.post('/api/auth/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists()
 ], async (req, res) => {
+  console.log('Login attempt:', { email: req.body.email, hasPassword: !!req.body.password });
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -206,12 +208,14 @@ app.post('/api/auth/login', [
 
     // Find user
     const user = await User.findOne({ email });
+    console.log('User lookup result:', user ? 'User found' : 'User not found');
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password);
+    console.log('Password validation:', isValidPassword ? 'Valid' : 'Invalid');
     if (!isValidPassword) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
